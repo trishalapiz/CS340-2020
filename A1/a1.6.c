@@ -15,6 +15,7 @@
 #include <stdbool.h>
 #include <sys/times.h>
 #include <pthread.h>
+#include <sys/mman.h>
 
 #define SIZE    10
 int min_size = 10000;
@@ -125,7 +126,10 @@ int main(int argc, char *argv[]) {
 	}
     struct block start_block;
     start_block.size = size;
-    start_block.data = (int *)calloc(size, sizeof(int));
+    start_block.data = (int*) mmap(NULL, start_block.size * sizeof(int), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+    // space in memory sharing with every process
+    // start_block.data = holds starting memory address of the shared block
+    // every process shares start_block.data
     if (start_block.data == NULL) {
         printf("Problem allocating memory.\n");
         exit(EXIT_FAILURE);
@@ -149,6 +153,5 @@ int main(int argc, char *argv[]) {
         print_data(start_block);
 
     printf(is_sorted(start_block) ? "sorted\n" : "not sorted\n");
-    free(start_block.data);
     exit(EXIT_SUCCESS);
 }

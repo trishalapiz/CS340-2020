@@ -1,10 +1,8 @@
 /*
     The sorting program to use for Operating Systems Assignment 1 2020
     written by Robert Sheehan
-
     Modified by: Trisha Lapiz
     UPI: tlap632
-
     By submitting a program you are claiming that you and only you have made
     adjustments and additions to this code.
  */
@@ -28,6 +26,8 @@ struct block {
     int size;
     int *data;
 };
+
+struct block new_block;
 
 void print_data(struct block my_data) {
     for (int i = 0; i < my_data.size; ++i)
@@ -66,15 +66,15 @@ void quick_sort(struct block my_data) {
     right_side.size = my_data.size - pivot_pos - 1;
     right_side.data = my_data.data + pivot_pos + 1;
 
-    if (!busy) {
-        busy = true;
-        left_side.data = left_side.data;
-        left_side.size = left_side.size;
-        pthread_cond_signal(&cond);
-        quick_sort((void*) &right_side);
+    if (!busy) { // main checks if second thread not busy
+        busy = true; // now it's busy cause it has work to do
+        new_block.data = left_side.data;
+        new_block.size = left_side.size;
+        pthread_cond_signal(&cond); // main tells the second thread to continue
+        quick_sort(right_side);
     } else {
-        quick_sort((void*) &left_side);
-        quick_sort((void*) &right_side);
+        quick_sort(left_side);
+        quick_sort(right_side);
     }
 
 }
@@ -88,10 +88,10 @@ void* temp_func(void* arg) { // arg = points to the address of the sublist
         busy = false;
         pthread_cond_wait(&cond, &lock); 
         // unlocks the mutex, 'cond' waits to be signalled, 
-        // thread is suspended until 'cond' is signalled
-        // releases associated mutex before blocking
-        busy = true;
-        quick_sort((void*) &left_side);
+        // SECOND THREAD is suspended until 'cond' is signalled
+        // releases associated mutex lock before blocking
+        busy = true; // second thread is bust again
+        quick_sort(new_block);
         pthread_cond_signal(&cond);
         // unblock ONE of the threads that are WAITING on 'cond'
     }
@@ -142,17 +142,23 @@ int main(int argc, char *argv[]) {
     times(&start_times);
     printf("start time in clock ticks: %ld\n", start_times.tms_utime);
 
-    // whenever quick_sort is called, check to see if the thread is busy
+    // PARTITION THE DATA INITIALLY
+    int pivot_pos = split_on_pivot(start_block);
+
+    struct block left_side, right_side;
+
+    left_side.size = pivot_pos;
+    left_side.data = start_block.data;
+    right_side.size = start_block.size - pivot_pos - 1;
+    right_side.data = start_block.data + pivot_pos + 1;
     
     pthread_t somethread;
-    // pthread_create(&somethread, NULL, &quick_sort, (void*)&left_side); // second thread
-    // quick_sort((void*) &right_side);
-    // pthread_join(somethread, NULL);
 
-    pthread_create(&someThread, NULL, (void *)temp_func, (void *)&left_side); // SECOND THREAD
+    // BOTH THREADS RUN AT THE SAME TIME
+    pthread_create(&somethread, NULL, (void *)temp_func, (void *)&left_side); // SECOND THREAD
     quick_sort(right_side); // main thread
-    pthread_join(someThread);
-
+    done = 0;
+    pthread_join(somethread, NULL);
 
     times(&finish_times);
     printf("finish time in clock ticks: %ld\n", finish_times.tms_utime);
@@ -164,3 +170,4 @@ int main(int argc, char *argv[]) {
     free(start_block.data);
     exit(EXIT_SUCCESS);
 }
+
