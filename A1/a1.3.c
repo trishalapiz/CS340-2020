@@ -54,29 +54,17 @@ int split_on_pivot(struct block my_data) {
 }
 
 /* Quick sort the data. */
-void* quick_sort(void* arg) {
-    struct block* my_data = (struct block*) arg;
-
-    if (my_data->size < 2)
-        return NULL;
-    int pivot_pos = split_on_pivot(*my_data);
+void quick_sort(struct block my_data) {
+    if (my_data.size < 2)
+        return;
+    int pivot_pos = split_on_pivot(my_data);
 
     struct block left_side, right_side;
 
     left_side.size = pivot_pos;
-    left_side.data = my_data->data;
-    right_side.size = my_data->size - pivot_pos - 1;
-    right_side.data = my_data->data + pivot_pos + 1;
-
-    pthread_mutex_lock(&lock);
-    while (done != 0) { // if second thread is busy
-        busy = false;
-        pthread_cond_wait(&cond, &lock);
-        busy = true;
-        quick_sort((void*) &left_side);
-        pthread_cond_signal(&cond);
-    }
-    pthread_mutex_unlock(&lock);
+    left_side.data = my_data.data;
+    right_side.size = my_data.size - pivot_pos - 1;
+    right_side.data = my_data.data + pivot_pos + 1;
 
     if (!busy) {
         busy = true;
@@ -89,6 +77,25 @@ void* quick_sort(void* arg) {
         quick_sort((void*) &right_side);
     }
 
+}
+
+void* temp_func(void* arg) { // arg = points to the address of the sublist
+    struct block* my_data = (struct block*) arg; // my_data is a struct 'block' pointer type, and it's pointing to the sublist
+    quick_sort(*my_data);
+
+    pthread_mutex_lock(&lock);
+    while (done != 0) { // if second thread is busy
+        busy = false;
+        pthread_cond_wait(&cond, &lock); 
+        // unlocks the mutex, 'cond' waits to be signalled, 
+        // thread is suspended until 'cond' is signalled
+        // releases associated mutex before blocking
+        busy = true;
+        quick_sort((void*) &left_side);
+        pthread_cond_signal(&cond);
+        // unblock ONE of the threads that are WAITING on 'cond'
+    }
+    pthread_mutex_unlock(&lock);
     return NULL;
 }
 
@@ -138,9 +145,14 @@ int main(int argc, char *argv[]) {
     // whenever quick_sort is called, check to see if the thread is busy
     
     pthread_t somethread;
-    pthread_create(&somethread, NULL, &quick_sort, (void*)&left_side); // second thread
-    quick_sort((void*) &right_side);
-    pthread_join(somethread, NULL);
+    // pthread_create(&somethread, NULL, &quick_sort, (void*)&left_side); // second thread
+    // quick_sort((void*) &right_side);
+    // pthread_join(somethread, NULL);
+
+    pthread_create(&someThread, NULL, (void *)temp_func, (void *)&left_side); // SECOND THREAD
+    quick_sort(right_side); // main thread
+    pthread_join(someThread);
+
 
     times(&finish_times);
     printf("finish time in clock ticks: %ld\n", finish_times.tms_utime);
