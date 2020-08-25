@@ -1,2 +1,2 @@
 # CS340-2020
-This repository contains assignment files from one of my final courses of uni (CS340)
+Operating system principles. Multi-user systems. Virtualisation. Scheduling. Concurrent processes, threads, synchronisation and deadlock. Memory allocation and virtual memory. Managing files, disks and other peripherals. Security, protection and archiving. Distributed systems and algorithms, location, migration and replication transparency. Real-time requirements. History of operating systems.
